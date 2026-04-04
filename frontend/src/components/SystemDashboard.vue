@@ -1,3 +1,13 @@
+<script setup>
+import { useSystemStore } from '../stores/system'
+import { computed } from 'vue'
+
+const systemStore = useSystemStore()
+const ramUsagePercent = computed(() => {
+  return systemStore.ramMax > 0 ? (systemStore.ram / systemStore.ramMax) * 100 : 0
+})
+</script>
+
 <template>
   <div class="panel-container">
     <h3 class="panel-title">🖥️ Base Station</h3>
@@ -5,24 +15,24 @@
     <div class="metrics">
       <div class="metric">
         <span class="label">CPU</span>
-        <div class="bar-bg"><div class="bar-fill" style="width: 25%"></div></div>
-        <span class="val">25%</span>
+        <div class="bar-bg"><div class="bar-fill" :style="{ width: systemStore.cpu + '%' }"></div></div>
+        <span class="val">{{ systemStore.cpu }}%</span>
       </div>
 
       <div class="metric">
         <span class="label">RAM</span>
-        <div class="bar-bg"><div class="bar-fill info" style="width: 15%"></div></div>
-        <span class="val">2.1/16 GB</span>
+        <div class="bar-bg"><div class="bar-fill info" :style="{ width: ramUsagePercent + '%' }"></div></div>
+        <span class="val">{{ (systemStore.ram / 1000).toFixed(1) }}/{{ (systemStore.ramMax / 1000).toFixed(1) }} GB</span>
       </div>
 
       <div class="metric">
         <span class="label">TEMP</span>
-        <span class="val val-text">45°C</span>
+        <span class="val val-text">{{ systemStore.temp }}°C</span>
       </div>
       
        <div class="metric">
-        <span class="label">IP</span>
-        <span class="val val-text">192.168.1.42</span>
+        <span class="label">UPTIME</span>
+        <span class="val val-text">{{ systemStore.uptime || '...' }}</span>
       </div>
     </div>
   </div>

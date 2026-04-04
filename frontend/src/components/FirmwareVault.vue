@@ -1,5 +1,34 @@
+<script setup>
+import { useFlasherStore } from '../stores/flasher'
+import { ref } from 'vue'
+
+const flasherStore = useFlasherStore()
+const fileInputRP2040 = ref(null)
+const fileInputESP32 = ref(null)
+
+const triggerUpload = (target) => {
+  if (target === 'RP2040') fileInputRP2040.value.click()
+  if (target === 'ESP32') fileInputESP32.value.click()
+}
+
+const onFileChange = async (e, target) => {
+  const file = e.target.files[0]
+  if (file) {
+    try {
+      await flasherStore.uploadFirmware(file, target)
+    } finally {
+      e.target.value = '' // Reset input
+    }
+  }
+}
+</script>
+
 <template>
   <div class="panel-container">
+    <!-- Hidden inputs for file upload -->
+    <input type="file" ref="fileInputRP2040" style="display:none;" @change="e => onFileChange(e, 'RP2040')" />
+    <input type="file" ref="fileInputESP32" style="display:none;" @change="e => onFileChange(e, 'ESP32')" />
+    
     <div class="header-row">
       <h3 class="panel-title">📦 Firmware Vault</h3>
       <button class="glow-btn" style="font-size: 10px; padding: 4px 8px;">+ UPLOAD</button>
@@ -7,25 +36,35 @@
     
     <div class="vault-grid">
       <div class="vault-section">
-        <h4 class="section-title">RP2040/</h4>
-        <div class="file-item">
-          <span class="file-name">main_logic_v1.2.elf</span>
-          <span class="file-meta">MD5: a3f4... ✅</span>
+        <div class="section-header">
+          <h4 class="section-title">RP2040/</h4>
+          <button class="glow-btn small-btn" @click="triggerUpload('RP2040')">+ UPLOAD</button>
+        </div>
+        <div v-for="fw in flasherStore.vaultFirmwares['RP2040']" :key="fw.name" class="file-item">
+          <span class="file-name">{{ fw.name }}</span>
+          <span class="file-meta">MD5: {{ fw.md5 ? fw.md5.substring(0,6)+'...' : 'N/A' }} ✅</span>
           <div class="file-actions">
+            <button @click="flasherStore.deleteFirmware(fw.name)">🗑</button>
             <button>🎯 Flash</button>
           </div>
         </div>
+        <div v-if="!flasherStore.vaultFirmwares['RP2040']?.length" class="empty-text">No firmwares</div>
       </div>
       
       <div class="vault-section">
-        <h4 class="section-title">ESP32/</h4>
-        <div class="file-item">
-          <span class="file-name">wifi_modem_v2.0.bin</span>
-          <span class="file-meta">MD5: d4e9... ✅</span>
+        <div class="section-header">
+          <h4 class="section-title">ESP32/</h4>
+          <button class="glow-btn small-btn" @click="triggerUpload('ESP32')">+ UPLOAD</button>
+        </div>
+        <div v-for="fw in flasherStore.vaultFirmwares['ESP32']" :key="fw.name" class="file-item">
+          <span class="file-name">{{ fw.name }}</span>
+          <span class="file-meta">MD5: {{ fw.md5 ? fw.md5.substring(0,6)+'...' : 'N/A' }} ✅</span>
           <div class="file-actions">
+             <button @click="flasherStore.deleteFirmware(fw.name)">🗑</button>
              <button>🎯 Flash</button>
           </div>
         </div>
+        <div v-if="!flasherStore.vaultFirmwares['ESP32']?.length" class="empty-text">No firmwares</div>
       </div>
     </div>
   </div>
@@ -113,5 +152,24 @@
 
 .file-actions button:hover {
   background: rgba(59, 130, 246, 0.2);
+}
+
+.small-btn {
+  font-size: 10px;
+  padding: 4px 8px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.empty-text {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding-left: 5px;
 }
 </style>

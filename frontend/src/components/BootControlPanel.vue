@@ -1,3 +1,16 @@
+<script setup>
+import { useHardwareStore } from '../stores/hardware'
+
+const hardwareStore = useHardwareStore()
+
+const triggerRP2040Bootsel = () => hardwareStore.triggerSequence('rp2040_bootsel')
+const triggerRP2040Reset = () => hardwareStore.triggerSequence('rp2040_reset')
+const triggerESP32Download = () => hardwareStore.triggerSequence('esp32_download')
+const triggerESP32Reset = () => hardwareStore.triggerSequence('esp32_reset')
+const triggerPowerCycle = () => hardwareStore.triggerSequence('power_cycle')
+
+</script>
+
 <template>
   <div class="boot-control">
     <div class="brand">
@@ -8,14 +21,14 @@
     <div class="actions">
       <div class="chip-group">
         <span class="chip-label">RP2040</span>
-        <button class="glow-btn">BOOTSEL</button>
-        <button class="glow-btn">RESET</button>
+        <button class="glow-btn" @click="triggerRP2040Bootsel">BOOTSEL</button>
+        <button class="glow-btn" @click="triggerRP2040Reset">RESET</button>
       </div>
 
       <div class="chip-group">
         <span class="chip-label">ESP32</span>
-        <button class="glow-btn">DOWNLOAD</button>
-        <button class="glow-btn">RESET EN</button>
+        <button class="glow-btn" @click="triggerESP32Download">DOWNLOAD</button>
+        <button class="glow-btn" @click="triggerESP32Reset">RESET EN</button>
       </div>
     </div>
   </div>

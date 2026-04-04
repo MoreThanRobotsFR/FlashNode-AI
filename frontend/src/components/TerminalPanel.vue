@@ -1,7 +1,8 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, onBeforeUnmount } from 'vue';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
+import { wsManager } from '../services/ws';
 import 'xterm/css/xterm.css';
 
 const terminalContainer = ref(null);
@@ -33,11 +34,26 @@ onMounted(() => {
   term.open(terminalContainer.value);
   fitAddon.fit();
   
-  // Mock data
+  
+  let wsUnsubscribe = null;
+  // Mock data -> replace by real ws stream
   term.writeln('\x1b[1;36mFlashNode-AI\x1b[0m Terminal Multiplexer');
   term.writeln('Connecting to /ws/flash/output...');
-  term.writeln('Connected.');
-  term.write('\r\n$ ');
+  
+  wsUnsubscribe = wsManager.subscribe('/flash/output', (payload) => {
+    if (payload && payload.data) {
+      // Just write incoming data stream to Xterm
+      term.write(payload.data)
+    }
+  })
+
+  // Simulated connected
+  setTimeout(() => term.writeln('\x1b[1;32mConnected.\x1b[0m'), 500);
+  
+  onBeforeUnmount(() => {
+    if (wsUnsubscribe) wsUnsubscribe()
+    term.dispose()
+  })
 });
 </script>
 

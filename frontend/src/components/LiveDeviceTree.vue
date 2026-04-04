@@ -1,29 +1,38 @@
+<script setup>
+import { useHardwareStore } from '../stores/hardware'
+
+const hardwareStore = useHardwareStore()
+</script>
+
 <template>
   <div class="panel-container">
     <h3 class="panel-title">📡 Live Device Tree</h3>
     
     <div class="tree">
-      <div class="tree-item">
+      <!-- Probes -->
+      <div v-for="(probe, i) in hardwareStore.probes" :key="'probe-'+i" class="tree-item">
         <span class="icon">🔌</span>
         <div class="details">
-          <div class="name">RPi Debug Probe</div>
-          <div class="path">/dev/ttyACM0 <span class="tag">SWD Ready</span></div>
+          <div class="name">Debug Probe</div>
+          <div class="path">{{ probe }} <span class="tag">SWD Ready</span></div>
         </div>
       </div>
 
-      <div class="tree-item">
+      <!-- Serial Ports -->
+      <div v-for="(port, i) in hardwareStore.serialPorts" :key="'serial-'+i" class="tree-item">
         <span class="icon">📟</span>
         <div class="details">
-          <div class="name">ESP32 Prog V2</div>
-          <div class="path">/dev/ttyUSB0 <span class="tag">115200</span></div>
+          <div class="name">Serial Device</div>
+          <div class="path">{{ port }} <span class="tag">OPEN</span></div>
         </div>
       </div>
       
-       <div class="tree-item disabled">
+      <!-- Fallback when nothing connected -->
+      <div v-if="!hardwareStore.probes.length && !hardwareStore.serialPorts.length" class="tree-item disabled">
         <span class="icon">⚪</span>
         <div class="details">
-          <div class="name">/dev/ttyUSB1</div>
-          <div class="path">Not Assigned</div>
+          <div class="name">No devices</div>
+          <div class="path">Wait for connection</div>
         </div>
       </div>
     </div>

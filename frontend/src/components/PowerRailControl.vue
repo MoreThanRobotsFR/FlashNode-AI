@@ -1,3 +1,8 @@
+<script setup>
+import { useHardwareStore } from '../stores/hardware'
+const hardwareStore = useHardwareStore()
+</script>
+
 <template>
   <div class="panel-container">
     <h3 class="panel-title">⚡ Power Rails</h3>
@@ -5,22 +10,26 @@
     <div class="rails">
       <div class="rail">
         <div class="rail-info">
-          <span class="indicator active"></span>
+          <span :class="['indicator', { active: hardwareStore.rails['5V'] }]"></span>
           <span class="name">Rail 5V</span>
         </div>
-        <button class="glow-btn">OFF</button>
+        <button class="glow-btn" @click="hardwareStore.toggleRail('5V')">
+          {{ hardwareStore.rails['5V'] ? 'OFF' : 'ON' }}
+        </button>
       </div>
 
       <div class="rail">
         <div class="rail-info">
-          <span class="indicator active"></span>
+          <span :class="['indicator', { active: hardwareStore.rails['3V3'] }]"></span>
           <span class="name">Rail 3.3V</span>
         </div>
-        <button class="glow-btn">OFF</button>
+        <button class="glow-btn" @click="hardwareStore.toggleRail('3V3')">
+          {{ hardwareStore.rails['3V3'] ? 'OFF' : 'ON' }}
+        </button>
       </div>
       
       <div class="actions">
-         <button class="glow-btn warning-btn" style="width: 100%; margin-top: 10px;">⚠ POWER CYCLE</button>
+         <button class="glow-btn warning-btn" style="width: 100%; margin-top: 10px;" @click="hardwareStore.triggerSequence('power_cycle')">⚠ POWER CYCLE</button>
       </div>
     </div>
   </div>

@@ -25,6 +25,20 @@
       { "pin": "ESP32_EN",    "value": 1, "delay_after_ms": 0   }
     ]
   },
+  "rp2040_reset": {
+    "description": "Reset software via GPIO RUN (actif bas)",
+    "steps": [
+      { "pin": "RP2040_RESET", "value": 0, "delay_after_ms": 100 },
+      { "pin": "RP2040_RESET", "value": 1, "delay_after_ms": 0 }
+    ]
+  },
+  "esp32_reset": {
+    "description": "Reset software via GPIO EN (actif bas)",
+    "steps": [
+      { "pin": "ESP32_EN", "value": 0, "delay_after_ms": 100 },
+      { "pin": "ESP32_EN", "value": 1, "delay_after_ms": 0 }
+    ]
+  },
   "power_cycle": {
     "description": "Cycle complet OFF/ON des deux rails",
     "steps": [

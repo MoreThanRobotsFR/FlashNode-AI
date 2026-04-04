@@ -1,4 +1,9 @@
 <script setup>
+import { onMounted } from 'vue'
+import { useHardwareStore } from './stores/hardware'
+import { useSystemStore } from './stores/system'
+import { useFlasherStore } from './stores/flasher'
+
 import BootControlPanel from './components/BootControlPanel.vue'
 import LiveDeviceTree from './components/LiveDeviceTree.vue'
 import PowerRailControl from './components/PowerRailControl.vue'
@@ -7,6 +12,23 @@ import TerminalPanel from './components/TerminalPanel.vue'
 import FirmwareVault from './components/FirmwareVault.vue'
 import OperationHistory from './components/OperationHistory.vue'
 import SystemDashboard from './components/SystemDashboard.vue'
+
+const hardwareStore = useHardwareStore()
+const systemStore = useSystemStore()
+const flasherStore = useFlasherStore()
+
+onMounted(() => {
+  // Fetch initial REST data
+  hardwareStore.fetchScan()
+  hardwareStore.fetchGpioStatus()
+  systemStore.fetchStatus()
+  flasherStore.fetchFirmwares()
+
+  // Subscribe to raw WebSocket streams
+  hardwareStore.initRealtime()
+  systemStore.initRealtime()
+  flasherStore.initRealtime()
+})
 </script>
 
 <template>
