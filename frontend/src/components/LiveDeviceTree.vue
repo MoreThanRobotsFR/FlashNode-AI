@@ -1,0 +1,106 @@
+<template>
+  <div class="panel-container">
+    <h3 class="panel-title">📡 Live Device Tree</h3>
+    
+    <div class="tree">
+      <div class="tree-item">
+        <span class="icon">🔌</span>
+        <div class="details">
+          <div class="name">RPi Debug Probe</div>
+          <div class="path">/dev/ttyACM0 <span class="tag">SWD Ready</span></div>
+        </div>
+      </div>
+
+      <div class="tree-item">
+        <span class="icon">📟</span>
+        <div class="details">
+          <div class="name">ESP32 Prog V2</div>
+          <div class="path">/dev/ttyUSB0 <span class="tag">115200</span></div>
+        </div>
+      </div>
+      
+       <div class="tree-item disabled">
+        <span class="icon">⚪</span>
+        <div class="details">
+          <div class="name">/dev/ttyUSB1</div>
+          <div class="path">Not Assigned</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.panel-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.panel-title {
+  font-size: 14px;
+  text-transform: uppercase;
+  color: var(--text-highlight);
+  margin-bottom: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 8px;
+}
+
+.tree {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.tree-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-light);
+}
+
+.tree-item.disabled {
+  opacity: 0.5;
+}
+
+.icon {
+  font-size: 18px;
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+}
+
+.name {
+  font-weight: 500;
+  color: var(--text-main);
+  font-size: 13px;
+}
+
+.path {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.tag {
+  background: rgba(94, 234, 212, 0.1);
+  color: var(--text-highlight);
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+</style>

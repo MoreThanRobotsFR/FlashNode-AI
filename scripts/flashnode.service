@@ -1,0 +1,17 @@
+[Unit]
+Description=FlashNode-AI Backend & MCP Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/flashnode
+Environment="PATH=/opt/flashnode/venv/bin:/usr/bin:/bin"
+Environment="GPIO_BACKEND=libgpiod"
+# Start uvicorn server in production
+ExecStart=/opt/flashnode/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

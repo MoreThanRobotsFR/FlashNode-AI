@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  flashnode-ai:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.aarch64
+    container_name: flashnode-ai
+    privileged: true
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      # Hardware passthrough
+      - /dev/bus/usb:/dev/bus/usb
+      - /dev/gpiochip0:/dev/gpiochip0
+      - /dev/gpiochip1:/dev/gpiochip1
+      - /dev/gpiochip2:/dev/gpiochip2
+      - /dev/gpiochip3:/dev/gpiochip3
+      - /dev/gpiochip4:/dev/gpiochip4
+      - /run/udev:/run/udev:ro
+      
+      # Persistence
+      - ./vault:/opt/flashnode/vault
+      - ./data:/opt/flashnode/data
+      - ./config:/opt/flashnode/config
+      
+    environment:
+      - GPIO_BACKEND=libgpiod
+    
+    # Needs to run in full privileged mode for full udev/gpio control on armbian

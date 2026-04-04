@@ -1,0 +1,55 @@
+# Build stage for frontend
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# Build stage for backend & final image (Debian arm64 base)
+FROM debian:bookworm-slim
+
+# Install system dependencies required for flashing and GPIO
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-venv python3-gpiod \
+    gpiod libgpiod-dev libgpiod2 \
+    openocd gdb-multiarch cmake git build-essential \
+    libusb-1.0-0-dev pkg-config udev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Compile picotool
+WORKDIR /tmp
+RUN git clone https://github.com/raspberrypi/picotool.git \
+    && cd picotool \
+    && mkdir build && cd build \
+    && cmake .. \
+    && make -j$(nproc) \
+    && make install \
+    && rm -rf /tmp/picotool
+
+WORKDIR /opt/flashnode
+
+# Create venv and install python dependencies
+RUN python3 -m venv /opt/flashnode/venv
+ENV PATH="/opt/flashnode/venv/bin:$PATH"
+
+COPY backend/requirements.txt ./backend/
+RUN pip install --no-cache-dir -r ./backend/requirements.txt
+
+# Copy source code
+COPY backend/ ./backend/
+COPY config/ ./config/
+
+# Add built frontend
+COPY --from=frontend-builder /app/frontend/dist ./frontend_dist/
+
+# Set env vars for Docker production
+ENV GPIO_BACKEND=libgpiod
+ENV VAULT_PATH=/opt/flashnode/vault
+
+# Expose ports
+EXPOSE 8000 8001
+
+# Start the FastAPI server
+CMD ["python3", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Cyber-Industrial Theme Variables */
+  --bg-core: #090b11;
+  --bg-panel: rgba(18, 22, 33, 0.6);
+  --bg-panel-hover: rgba(25, 30, 44, 0.8);
+  --border-light: rgba(94, 234, 212, 0.15); /* Teal subtle border */
+  --border-primary: rgba(94, 234, 212, 0.5);
+  
+  --text-main: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-highlight: #5eead4; /* Teal / Cyan */
+
+  /* Semantic Colors */
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+
+  /* Typography */
+  --font-main: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  /* Glassmorphism */
+  --glass-blur: blur(12px);
+  --shadow-neon: 0 0 15px rgba(94, 234, 212, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-core);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  font-size: 14px;
+  overflow: hidden; /* Avoid main body scroll because of the split panes layout */
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(94, 234, 212, 0.03), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(59, 130, 246, 0.03), transparent 25%);
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Base Glass Panel Utility */
+.glass-panel {
+  background: var(--bg-panel);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  box-shadow: var(--shadow-neon);
+  transition: all 0.2s ease-in-out;
+}
+
+/* Elegant Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-primary);
+}
+
+/* Animations */
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 5px rgba(94, 234, 212, 0.2); }
+  50% { box-shadow: 0 0 15px rgba(94, 234, 212, 0.5); }
+  100% { box-shadow: 0 0 5px rgba(94, 234, 212, 0.2); }
+}
+
+.glow-btn {
+  background: rgba(94, 234, 212, 0.1);
+  color: var(--text-highlight);
+  border: 1px solid var(--border-primary);
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+}
+
+.glow-btn:hover {
+  background: rgba(94, 234, 212, 0.2);
+  animation: pulseGlow 1.5s infinite;
+}

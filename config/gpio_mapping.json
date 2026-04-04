@@ -1,0 +1,16 @@
+{
+  "platform": "radxa-rock5c",
+  "gpio_chip_map": {
+    "GPIO0": "/dev/gpiochip0",
+    "GPIO1": "/dev/gpiochip1",
+    "GPIO4": "/dev/gpiochip4"
+  },
+  "pins": [
+    { "id": "RAIL_5V",        "gpio_name": "GPIO1_B3", "gpio_num": 43,  "chip": "/dev/gpiochip1", "offset": 11, "active": "high", "label": "Rail 5V"       },
+    { "id": "RAIL_3V3",       "gpio_name": "GPIO4_B3", "gpio_num": 139, "chip": "/dev/gpiochip4", "offset": 11, "active": "high", "label": "Rail 3.3V"      },
+    { "id": "RP2040_RESET",   "gpio_name": "GPIO4_B2", "gpio_num": 138, "chip": "/dev/gpiochip4", "offset": 10, "active": "low",  "label": "RESET RP2040"   },
+    { "id": "RP2040_BOOTSEL", "gpio_name": "GPIO4_B4", "gpio_num": 140, "chip": "/dev/gpiochip4", "offset": 12, "active": "low",  "label": "BOOTSEL RP2040" },
+    { "id": "ESP32_EN",       "gpio_name": "GPIO1_A5", "gpio_num": 37,  "chip": "/dev/gpiochip1", "offset": 5,  "active": "high", "label": "EN ESP32"       },
+    { "id": "ESP32_GPIO0",    "gpio_name": "GPIO1_B0", "gpio_num": 40,  "chip": "/dev/gpiochip1", "offset": 8,  "active": "low",  "label": "GPIO0 ESP32"    }
+  ]
+}
