@@ -6,4 +6,5 @@ pyudev; sys_platform == 'linux'
 psutil
 python-multipart
 httpx
+aiofiles
 mcp

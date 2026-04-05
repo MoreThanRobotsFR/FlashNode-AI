@@ -1,7 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 import logging
+import os
 
 # Load environment variables from .env file FIRST
 load_dotenv()
@@ -63,9 +66,45 @@ app.include_router(pipeline_ws_router, prefix="/ws")
 gpio_backend = get_gpio_backend()
 logger.info(f"Initialized GPIO backend: {gpio_backend.__class__.__name__}")
 
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to FlashNode-AI API"}
+# ---- Serve Frontend (Production) ----
+# Look for built frontend in multiple possible locations
+_frontend_dist = None
+for _candidate in [
+    os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist'),       # Dev: ../frontend/dist
+    os.path.join(os.path.dirname(__file__), '..', 'frontend_dist'),           # Docker: ../frontend_dist
+    '/opt/flashnode/frontend_dist',                                           # Systemd install
+]:
+    if os.path.isdir(_candidate):
+        _frontend_dist = os.path.abspath(_candidate)
+        break
+
+if _frontend_dist:
+    logger.info(f"Serving frontend from: {_frontend_dist}")
+    # Serve static assets (js, css, images)
+    app.mount("/assets", StaticFiles(directory=os.path.join(_frontend_dist, "assets")), name="frontend-assets")
+
+    @app.get("/")
+    async def serve_index():
+        return FileResponse(os.path.join(_frontend_dist, "index.html"))
+
+    # SPA catch-all: any path that doesn't match /api or /ws returns index.html
+    @app.get("/{full_path:path}")
+    async def serve_spa(request: Request, full_path: str):
+        # Don't intercept API or WS routes
+        if full_path.startswith(("api/", "ws/", "docs", "openapi.json", "redoc")):
+            return {"detail": "Not found"}
+        # Try to serve a static file first
+        static_file = os.path.join(_frontend_dist, full_path)
+        if os.path.isfile(static_file):
+            return FileResponse(static_file)
+        # Fallback to index.html for SPA routing
+        return FileResponse(os.path.join(_frontend_dist, "index.html"))
+else:
+    logger.info("No frontend build found. API-only mode.")
+
+    @app.get("/")
+    def read_root():
+        return {"message": "Welcome to FlashNode-AI API", "docs": "/docs"}
 
 # Run the app directly if executed (for dev)
 if __name__ == "__main__":

@@ -1,17 +1,44 @@
 [Unit]
-Description=FlashNode-AI Backend & MCP Server
+Description=FlashNode-AI — Station de programmation et test matériel
+Documentation=https://github.com/MoreThanRobotsFR/FlashNode-AI
 After=network.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=root
+# Root is required for GPIO chip access and USB device control on Armbian.
+# The application itself restricts operations to the flashnode user group.
+
 WorkingDirectory=/opt/flashnode
-Environment="PATH=/opt/flashnode/venv/bin:/usr/bin:/bin"
+EnvironmentFile=/opt/flashnode/.env
+Environment="PATH=/opt/flashnode/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="GPIO_BACKEND=libgpiod"
-# Start uvicorn server in production
-ExecStart=/opt/flashnode/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000
+Environment="VIRTUAL_ENV=/opt/flashnode/venv"
+
+ExecStart=/opt/flashnode/venv/bin/python3 -m uvicorn backend.main:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --workers 1 \
+    --log-level info
+
+# Restart policy
 Restart=always
-RestartSec=3
+RestartSec=5
+
+# Security hardening (compatible with GPIO/USB access)
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=true
+ReadWritePaths=/opt/flashnode/vault /opt/flashnode/data /dev
+
+# Resource limits
+LimitNOFILE=65536
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=flashnode-ai
 
 [Install]
 WantedBy=multi-user.target

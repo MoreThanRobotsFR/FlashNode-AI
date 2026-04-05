@@ -1,55 +1,81 @@
-# Build stage for frontend
+# ============================================================
+# FlashNode-AI — Dockerfile for aarch64 (Rock 5C / Armbian)
+# Target: Debian 13 Trixie
+# ============================================================
+
+# Stage 1: Build frontend
 FROM node:20-alpine AS frontend-builder
-WORKDIR /app/frontend
+WORKDIR /build/frontend
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm ci --no-audit
 COPY frontend/ ./
 RUN npm run build
 
-# Build stage for backend & final image (Debian arm64 base)
-FROM debian:bookworm-slim
+# Stage 2: Backend + runtime
+FROM debian:trixie-slim
 
-# Install system dependencies required for flashing and GPIO
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-update && apt-get install -y --no-install-recommends \
+
+# System dependencies for flashing, GPIO, and USB
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip python3-venv python3-gpiod \
     gpiod libgpiod-dev libgpiod2 \
-    openocd gdb-multiarch cmake git build-essential \
+    openocd gdb-multiarch \
     libusb-1.0-0-dev pkg-config udev \
+    cmake git build-essential ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Compile picotool
+# Install esptool system-wide
+RUN pip3 install --break-system-packages esptool
+
+# Compile picotool (requires pico-sdk for recent versions)
 WORKDIR /tmp
-RUN git clone https://github.com/raspberrypi/picotool.git \
+RUN git clone --depth 1 https://github.com/raspberrypi/pico-sdk.git \
+    && git clone --depth 1 https://github.com/raspberrypi/picotool.git \
     && cd picotool \
     && mkdir build && cd build \
-    && cmake .. \
+    && cmake .. -DPICO_SDK_PATH=/tmp/pico-sdk \
     && make -j$(nproc) \
     && make install \
-    && rm -rf /tmp/picotool
+    && cd / && rm -rf /tmp/picotool /tmp/pico-sdk
+
+# Create application directory and non-root user
+RUN useradd -r -m -s /bin/bash -G dialout,plugdev flashnode \
+    && mkdir -p /opt/flashnode/vault /opt/flashnode/data /opt/flashnode/config \
+    && chown -R flashnode:flashnode /opt/flashnode
 
 WORKDIR /opt/flashnode
 
-# Create venv and install python dependencies
+# Python virtual environment
 RUN python3 -m venv /opt/flashnode/venv
 ENV PATH="/opt/flashnode/venv/bin:$PATH"
+ENV VIRTUAL_ENV="/opt/flashnode/venv"
 
+# Install Python dependencies
 COPY backend/requirements.txt ./backend/
-RUN pip install --no-cache-dir -r ./backend/requirements.txt
+RUN pip install --no-cache-dir -r ./backend/requirements.txt \
+    && pip install --no-cache-dir aiofiles
 
-# Copy source code
+# Copy application source
 COPY backend/ ./backend/
 COPY config/ ./config/
 
-# Add built frontend
-COPY --from=frontend-builder /app/frontend/dist ./frontend_dist/
+# Copy built frontend
+COPY --from=frontend-builder /build/frontend/dist ./frontend_dist/
 
-# Set env vars for Docker production
+# Environment
 ENV GPIO_BACKEND=libgpiod
 ENV VAULT_PATH=/opt/flashnode/vault
+ENV FLASHNODE_HOST=0.0.0.0
+ENV FLASHNODE_PORT=8000
 
-# Expose ports
+# Expose API + MCP ports
 EXPOSE 8000 8001
 
-# Start the FastAPI server
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/system/status')" || exit 1
+
+# Note: Container needs to run as root for GPIO/USB access
+# but the app itself is relatively sandboxed
 CMD ["python3", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

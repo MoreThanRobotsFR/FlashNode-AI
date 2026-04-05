@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   flashnode-ai:
     build:
@@ -9,8 +7,15 @@ services:
     privileged: true
     network_mode: host
     restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      - GPIO_BACKEND=libgpiod
+
     volumes:
-      # Hardware passthrough
+      # Hardware passthrough — GPIO chips (RK3588S2 has gpiochip0-4)
       - /dev/bus/usb:/dev/bus/usb
       - /dev/gpiochip0:/dev/gpiochip0
       - /dev/gpiochip1:/dev/gpiochip1
@@ -18,13 +23,18 @@ services:
       - /dev/gpiochip3:/dev/gpiochip3
       - /dev/gpiochip4:/dev/gpiochip4
       - /run/udev:/run/udev:ro
-      
-      # Persistence
+
+      # Serial ports — dynamically mapped
+      # Docker --device would be better but compose doesn't support wildcards
+      # privileged: true gives access to all /dev/ttyUSB* and /dev/ttyACM*
+
+      # Persistent data
       - ./vault:/opt/flashnode/vault
       - ./data:/opt/flashnode/data
       - ./config:/opt/flashnode/config
-      
-    environment:
-      - GPIO_BACKEND=libgpiod
-    
-    # Needs to run in full privileged mode for full udev/gpio control on armbian
+
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/system/status')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
