@@ -25,9 +25,10 @@ def load_pipelines():
     except Exception:
         return []
 
-async def emit_progress(step_idx: int, total_steps: int, status: str, step_details: dict = None):
+async def emit_progress(pipeline_id: str, step_idx: int, total_steps: int, status: str, step_details: dict = None):
     payload = {
         "type": "pipeline_progress",
+        "pipeline_id": pipeline_id,
         "step_idx": step_idx,
         "total_steps": total_steps,
         "status": status,

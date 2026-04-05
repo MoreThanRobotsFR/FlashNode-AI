@@ -30,7 +30,7 @@ const displayedSteps = computed(() => {
     let statusText = 'Pending'
     let isSpinner = false
     
-    if (flasherStore.activePipeline) {
+    if (flasherStore.activePipeline && flasherStore.activePipeline.id === currentDef.id) {
       if (flasherStore.activePipeline.status === 'completed') {
         statusClass = 'success'
         statusText = '✅ OK'

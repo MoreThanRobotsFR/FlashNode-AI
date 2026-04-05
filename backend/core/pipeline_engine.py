@@ -10,23 +10,24 @@ logger = logging.getLogger(__name__)
 
 class PipelineEngine:
     def __init__(self, 
-                 on_step_progress: Callable[[int, int, str], Awaitable[None]] = None):
+                 on_step_progress: Callable = None):
         self.on_step_progress = on_step_progress
 
-    async def _emit_progress(self, step_idx: int, total: int, status: str, step_details: Dict[str, Any] = None):
+    async def _emit_progress(self, pipeline_id: str, step_idx: int, total: int, status: str, step_details: Dict[str, Any] = None):
         if self.on_step_progress:
-            await self.on_step_progress(step_idx, total, status, step_details)
+            await self.on_step_progress(pipeline_id, step_idx, total, status, step_details)
 
     async def run_pipeline(self, pipeline_def: Dict[str, Any]) -> bool:
         name = pipeline_def.get("name", pipeline_def.get("id", "Unknown"))
+        pipeline_id = pipeline_def.get("id", name)
         steps = pipeline_def.get("steps", [])
         total_steps = len(steps)
         
-        logger.info(f"Starting pipeline {name} with {total_steps} steps.")
+        logger.info(f"Starting pipeline {name} (ID: {pipeline_id}) with {total_steps} steps.")
         history_db.log_operation("STARTED", f"Pipeline {name}")
 
         for i, step in enumerate(steps, 1):
-            await self._emit_progress(i, total_steps, "running", step)
+            await self._emit_progress(pipeline_id, i, total_steps, "running", step)
             action = step.get("action")
             logger.info(f"Step {i}: {step.get('description', action)}")
             
@@ -42,7 +43,7 @@ class PipelineEngine:
                 history_db.log_operation("ERROR", f"Pipeline {name}", details=str(e))
                 return False
 
-        await self._emit_progress(total_steps, total_steps, "completed", {})
+        await self._emit_progress(pipeline_id, total_steps, total_steps, "completed", {})
         history_db.log_operation("SUCCESS", f"Pipeline {name}")
         logger.info(f"Pipeline {name} completed successfully.")
         return True

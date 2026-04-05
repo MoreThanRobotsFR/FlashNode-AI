@@ -100,6 +100,7 @@ export const useFlasherStore = defineStore('flasher', () => {
           }
           
           activePipeline.value = {
+            id: data.pipeline_id,
             currentStep: data.step_idx,
             totalSteps: data.total_steps,
             status: data.status,
