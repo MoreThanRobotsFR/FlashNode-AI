@@ -1,0 +1,77 @@
+{
+  "pipelines": [
+    {
+      "id": "Prod_Board_V1_Full_Deploy",
+      "name": "Prod Board V1 - Déploiement Complet",
+      "steps": [
+        {
+          "action": "gpio_sequence",
+          "sequence": "rp2040_bootsel",
+          "description": "Mise en mode BOOTSEL du RP2040"
+        },
+        {
+          "action": "delay",
+          "duration_ms": 1000,
+          "description": "Attente d'énumération USB"
+        },
+        {
+          "action": "flash",
+          "tool": "picotool",
+          "target": "RP2040",
+          "firmware": "mock_rp2040.uf2",
+          "description": "Flash du processeur maître RP2040"
+        },
+        {
+          "action": "gpio_sequence",
+          "sequence": "rp2040_reset",
+          "description": "Redémarrage RP2040"
+        },
+        {
+          "action": "gpio_sequence",
+          "sequence": "esp32_download",
+          "description": "Mise en mode Download de l'ESP32"
+        },
+        {
+          "action": "flash",
+          "tool": "esptool",
+          "target": "ESP32",
+          "firmware": "mock_esp32.bin",
+          "port": "/dev/ttyUSB0",
+          "baudrate": 921600,
+          "description": "Flash du modem ESP32"
+        },
+        {
+          "action": "gpio_sequence",
+          "sequence": "esp32_reset",
+          "description": "Redémarrage ESP32"
+        },
+        {
+          "action": "monitor_serial",
+          "expected_output": "SYSTEM READY",
+          "description": "Validation du boot uart complet"
+        }
+      ]
+    },
+    {
+      "id": "Demo_Mock_Pipeline",
+      "name": "Démo - Mock Testing",
+      "steps": [
+        {
+          "action": "delay",
+          "duration_ms": 2000,
+          "description": "Initialisation du contexte de test"
+        },
+        {
+          "action": "monitor_serial",
+          "expected_output": "HELLO",
+          "description": "Simulation d'attente d'une sonde"
+        },
+        {
+          "action": "delay",
+          "duration_ms": 1500,
+          "description": "Analyse de conformité"
+        }
+      ]
+    }
+  ]
+}

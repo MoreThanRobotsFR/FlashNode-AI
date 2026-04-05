@@ -9,12 +9,12 @@ const hardwareStore = useHardwareStore()
     <h3 class="panel-title">📡 Live Device Tree</h3>
     
     <div class="tree">
-      <!-- Probes -->
-      <div v-for="(probe, i) in hardwareStore.probes" :key="'probe-'+i" class="tree-item">
+      <!-- USB Devices -->
+      <div v-for="(dev, i) in hardwareStore.usbDevices" :key="'usb-'+i" class="tree-item">
         <span class="icon">🔌</span>
         <div class="details">
-          <div class="name">Debug Probe</div>
-          <div class="path">{{ probe }} <span class="tag">SWD Ready</span></div>
+          <div class="name">{{ dev.description || 'Appareil USB' }}</div>
+          <div class="path">{{ dev.device_node || 'USB' }} <span class="tag">Actif</span></div>
         </div>
       </div>
 
@@ -22,13 +22,13 @@ const hardwareStore = useHardwareStore()
       <div v-for="(port, i) in hardwareStore.serialPorts" :key="'serial-'+i" class="tree-item">
         <span class="icon">📟</span>
         <div class="details">
-          <div class="name">Serial Device</div>
-          <div class="path">{{ port }} <span class="tag">OPEN</span></div>
+          <div class="name">{{ port.type !== 'Unknown' ? port.type : (port.description || 'Port Série') }}</div>
+          <div class="path">{{ port.port }} <span class="tag">OPEN</span></div>
         </div>
       </div>
       
       <!-- Fallback when nothing connected -->
-      <div v-if="!hardwareStore.probes.length && !hardwareStore.serialPorts.length" class="tree-item disabled">
+      <div v-if="!hardwareStore.usbDevices.length && !hardwareStore.serialPorts.length" class="tree-item disabled">
         <span class="icon">⚪</span>
         <div class="details">
           <div class="name">No devices</div>

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from .connection_manager import manager
+from ws.connection_manager import manager
 import asyncio
 import psutil
 
@@ -21,11 +21,4 @@ async def system_ws(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket, channel="system")
 
-@router.websocket("/pipeline/status")
-async def pipeline_ws(websocket: WebSocket):
-    await manager.connect(websocket, channel="pipeline")
-    try:
-        while True:
-            data = await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket, channel="pipeline")
+

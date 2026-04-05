@@ -96,4 +96,24 @@ class VaultManager:
             return filepath
         return None
 
+    def delete_firmware(self, target: str, filename: str) -> bool:
+        """Deletes a firmware and its checksum files."""
+        target_dir = os.path.join(self.vault_path, target.upper())
+        filepath = os.path.join(target_dir, filename)
+        
+        if not os.path.exists(filepath):
+            return False
+            
+        try:
+            os.remove(filepath)
+            if os.path.exists(f"{filepath}.md5"):
+                os.remove(f"{filepath}.md5")
+            if os.path.exists(f"{filepath}.sha256"):
+                os.remove(f"{filepath}.sha256")
+            logger.info(f"Deleted firmware {filename} from {target_dir}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete {filepath}: {e}")
+            return False
+
 vault_manager = VaultManager()

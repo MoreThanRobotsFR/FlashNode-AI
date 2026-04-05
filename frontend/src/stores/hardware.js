@@ -13,9 +13,9 @@ export const useHardwareStore = defineStore('hardware', () => {
   async function fetchScan() {
     try {
       const response = await api.get('/devices/scan')
-      usbDevices.value = response.data.usb_devices || []
-      serialPorts.value = response.data.serial_ports || []
-      probes.value = response.data.debug_probes || []
+      usbDevices.value = response.data.usb || []
+      serialPorts.value = response.data.serial || []
+      probes.value = [] // Probes filtering logic can be added later
       
       // Update hardware rails from GPIO state if available in scan 
       // or we can fetch a specific /gpio/status endpoint

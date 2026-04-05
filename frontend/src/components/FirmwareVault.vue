@@ -41,11 +41,11 @@ const onFileChange = async (e, target) => {
           <button class="glow-btn small-btn" @click="triggerUpload('RP2040')">+ UPLOAD</button>
         </div>
         <div v-for="fw in flasherStore.vaultFirmwares['RP2040']" :key="fw.name" class="file-item">
-          <span class="file-name">{{ fw.name }}</span>
+          <span class="file-name">{{ fw.name || fw.filename }}</span>
           <span class="file-meta">MD5: {{ fw.md5 ? fw.md5.substring(0,6)+'...' : 'N/A' }} ✅</span>
           <div class="file-actions">
-            <button @click="flasherStore.deleteFirmware(fw.name)">🗑</button>
-            <button>🎯 Flash</button>
+            <button @click="flasherStore.deleteFirmware('RP2040', (fw.name || fw.filename))">🗑</button>
+            <button @click="flasherStore.flashFirmware('RP2040', (fw.name || fw.filename), 'picotool')">🎯 Flash</button>
           </div>
         </div>
         <div v-if="!flasherStore.vaultFirmwares['RP2040']?.length" class="empty-text">No firmwares</div>
@@ -57,11 +57,11 @@ const onFileChange = async (e, target) => {
           <button class="glow-btn small-btn" @click="triggerUpload('ESP32')">+ UPLOAD</button>
         </div>
         <div v-for="fw in flasherStore.vaultFirmwares['ESP32']" :key="fw.name" class="file-item">
-          <span class="file-name">{{ fw.name }}</span>
+          <span class="file-name">{{ fw.name || fw.filename }}</span>
           <span class="file-meta">MD5: {{ fw.md5 ? fw.md5.substring(0,6)+'...' : 'N/A' }} ✅</span>
           <div class="file-actions">
-             <button @click="flasherStore.deleteFirmware(fw.name)">🗑</button>
-             <button>🎯 Flash</button>
+             <button @click="flasherStore.deleteFirmware('ESP32', fw.filename)">🗑</button>
+             <button @click="flasherStore.flashFirmware('ESP32', fw.filename, 'esptool')">🎯 Flash</button>
           </div>
         </div>
         <div v-if="!flasherStore.vaultFirmwares['ESP32']?.length" class="empty-text">No firmwares</div>

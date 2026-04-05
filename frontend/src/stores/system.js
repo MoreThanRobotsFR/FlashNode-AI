@@ -20,10 +20,12 @@ export const useSystemStore = defineStore('system', () => {
   }
 
   function updateFromPayload(data) {
-    if (data.cpu !== undefined) cpu.value = data.cpu
-    if (data.ram_mb !== undefined) ram.value = data.ram_mb
-    if (data.ram_max !== undefined) ramMax.value = data.ram_max
-    if (data.temp_c !== undefined) temp.value = data.temp_c
+    if (data.cpu_percent !== undefined) cpu.value = data.cpu_percent
+    if (data.memory_percent !== undefined) {
+      // Backend returns % only, let's derive approx absolute usage if max is known
+      ram.value = (data.memory_percent / 100) * ramMax.value
+    }
+    if (data.temperature_c !== undefined && data.temperature_c !== null) temp.value = data.temperature_c
     if (data.uptime !== undefined) uptime.value = data.uptime
   }
 

@@ -26,3 +26,11 @@ async def upload_firmware(target: str = Form(...), file: UploadFile = File(...))
 async def list_firmwares() -> Dict[str, Any]:
     """Lists all firmwares in the vault by target"""
     return vault_manager.list_firmwares()
+
+@router.delete("/{target}/{filename}")
+async def delete_firmware(target: str, filename: str) -> Dict[str, Any]:
+    """Deletes a firmware from the vault"""
+    success = vault_manager.delete_firmware(target, filename)
+    if not success:
+        raise HTTPException(status_code=404, detail="Firmware not found or could not be deleted")
+    return {"status": "success"}

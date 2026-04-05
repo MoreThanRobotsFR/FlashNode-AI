@@ -5,6 +5,7 @@ import { wsManager } from '../services/ws'
 
 export const useFlasherStore = defineStore('flasher', () => {
   const activePipeline = ref(null)
+  const availablePipelines = ref([])
   const progress = ref(0)
   const step = ref('')
   
@@ -26,6 +27,15 @@ export const useFlasherStore = defineStore('flasher', () => {
     }
   }
 
+  async function fetchPipelines() {
+    try {
+      const res = await api.get('/pipeline/list')
+      availablePipelines.value = res.data || []
+    } catch(err) {
+      console.error('Failed to fetch pipelines', err)
+    }
+  }
+
   async function uploadFirmware(file, target) {
     const formData = new FormData()
     formData.append('file', file)
@@ -42,18 +52,31 @@ export const useFlasherStore = defineStore('flasher', () => {
     }
   }
 
-  async function deleteFirmware(name) {
+  async function deleteFirmware(target, filename) {
     try {
-      await api.delete(`/firmware/${name}`)
+      await api.delete(`/firmware/${target}/${filename}`)
       await fetchFirmwares()
     } catch(err) {
       console.error('Failed to delete firmware', err)
     }
   }
 
+  async function flashFirmware(target, filename, tool = 'picotool') {
+    try {
+      await api.post('/action/flash', {
+        tool: tool,
+        target: target,
+        firmware: filename,
+        baudrate: 921600
+      })
+    } catch(err) {
+        console.error('Flash failed', err)
+    }
+  }
+
   async function runPipeline(name) {
     try {
-      await api.post(`/pipeline/${name}/start`)
+      await api.post('/pipeline/start', { pipeline_name: name })
     } catch(err) {
       console.error('Pipeline start failed', err)
     }
@@ -68,13 +91,28 @@ export const useFlasherStore = defineStore('flasher', () => {
     }
     if (!wsUnsubscribePipeline) {
       wsUnsubscribePipeline = wsManager.subscribe('/pipeline/status', (data) => {
-        // Handle pipeline multi-step progress...
+        console.log("[WS] Pipeline status received:", data)
+        if (data.step_idx !== undefined && data.total_steps) {
+          progress.value = Math.floor(((data.step_idx - 1) / data.total_steps) * 100)
+          
+          if (data.status === 'completed') {
+             progress.value = 100
+          }
+          
+          activePipeline.value = {
+            currentStep: data.step_idx,
+            totalSteps: data.total_steps,
+            status: data.status,
+            details: data.step_details
+          }
+          console.log("[WS] activePipeline updated:", activePipeline.value)
+        }
       })
     }
   }
 
   return { 
-    activePipeline, progress, step, vaultFirmwares, 
-    fetchFirmwares, uploadFirmware, deleteFirmware, runPipeline, initRealtime 
+    activePipeline, availablePipelines, progress, step, vaultFirmwares, 
+    fetchFirmwares, fetchPipelines, uploadFirmware, deleteFirmware, flashFirmware, runPipeline, initRealtime 
   }
 })

@@ -23,6 +23,7 @@ from ws.flash_ws import router as flash_ws_router
 from ws.serial_ws import router as serial_ws_router
 from ws.devices_ws import router as devices_ws_router
 from ws.system_ws import router as system_ws_router
+from ws.pipeline_ws import router as pipeline_ws_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -56,6 +57,7 @@ app.include_router(flash_ws_router, prefix="/ws")
 app.include_router(serial_ws_router, prefix="/ws")
 app.include_router(devices_ws_router, prefix="/ws")
 app.include_router(system_ws_router, prefix="/ws")
+app.include_router(pipeline_ws_router, prefix="/ws")
 
 # Initialize GPIO backend immediately to log which one is used
 gpio_backend = get_gpio_backend()

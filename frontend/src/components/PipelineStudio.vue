@@ -1,48 +1,94 @@
+<script setup>
+import { useFlasherStore } from '../stores/flasher'
+import { computed, ref, onMounted } from 'vue'
+
+const flasherStore = useFlasherStore()
+const selectedPipeline = ref('')
+
+onMounted(() => {
+  flasherStore.fetchPipelines().then(() => {
+    if (flasherStore.availablePipelines.length > 0) {
+      selectedPipeline.value = flasherStore.availablePipelines[0].id
+    }
+  })
+})
+
+const startPipeline = () => {
+  if (selectedPipeline.value) {
+    flasherStore.runPipeline(selectedPipeline.value)
+  }
+}
+
+// Derive steps to display
+const displayedSteps = computed(() => {
+  const currentDef = flasherStore.availablePipelines.find(p => p.id === selectedPipeline.value)
+  if (!currentDef) return []
+  
+  return currentDef.steps.map((step, index) => {
+    const stepNum = index + 1
+    let statusClass = 'pending'
+    let statusText = 'Pending'
+    let isSpinner = false
+    
+    if (flasherStore.activePipeline) {
+      if (flasherStore.activePipeline.status === 'completed') {
+        statusClass = 'success'
+        statusText = '✅ OK'
+      } else if (flasherStore.activePipeline.status === 'running') {
+        if (stepNum < flasherStore.activePipeline.currentStep) {
+           statusClass = 'success'
+           statusText = '✅ OK'
+        } else if (stepNum === flasherStore.activePipeline.currentStep) {
+           statusClass = 'active'
+           statusText = '⚡ En cours...'
+           isSpinner = true
+        }
+      }
+    }
+    
+    return {
+      num: stepNum,
+      name: step.description || step.action,
+      statusClass,
+      statusText,
+      isSpinner,
+      details: step
+    }
+  })
+})
+</script>
+
 <template>
   <div class="panel-container">
     <div class="header-row">
       <h3 class="panel-title">📋 Pipeline Studio</h3>
       <div class="pipeline-selector">
-        <select class="custom-select">
-          <option>Prod_Board_V1_Full_Deploy</option>
+        <select v-model="selectedPipeline" class="custom-select">
+          <option v-for="pipe in flasherStore.availablePipelines" :key="pipe.id" :value="pipe.id">
+            {{ pipe.name }}
+          </option>
         </select>
-        <button class="glow-btn">▶ LAUNCH</button>
+        <button class="glow-btn" @click="startPipeline">▶ LAUNCH</button>
       </div>
     </div>
     
     <div class="pipeline-steps">
-      <div class="step success">
+      <div v-for="step in displayedSteps" :key="step.num" :class="['step', step.statusClass]">
         <div class="step-header">
-          <span class="step-num">[1]</span>
-          <span class="step-name">Flash RP2040</span>
-          <span class="step-status">✅ OK</span>
+          <span class="step-num">[{{ step.num }}]</span>
+          <span class="step-name">{{ step.name }}</span>
+          <span :class="['step-status', { spinner: step.isSpinner }]">{{ step.statusText }}</span>
         </div>
-        <div class="step-details">
-          <div>Outil: <span class="val">Picotool</span></div>
-          <div>Firmware: <span class="val">main_logic_v1.2.uf2</span></div>
+        
+        <div class="step-details" v-if="step.details.tool || step.details.port || step.details.target">
+          <div v-if="step.details.tool">Outil: <span class="val">{{ step.details.tool }}</span></div>
+          <div v-if="step.details.firmware">Firmware: <span class="val">{{ step.details.firmware }}</span></div>
+          <div v-if="step.details.port">Port: <span class="val">{{ step.details.port }}</span></div>
         </div>
-      </div>
-
-      <div class="step active">
-        <div class="step-header">
-          <span class="step-num">[2]</span>
-          <span class="step-name">Flash ESP32</span>
-          <span class="step-status spinner">⚡</span>
-        </div>
-        <div class="step-details">
-          <div>Outil: <span class="val">esptool.py</span></div>
-          <div>Port: <span class="val">/dev/ttyUSB0</span></div>
-        </div>
-        <div class="progress-bar-container">
-          <div class="progress-bar" style="width: 60%"></div>
-        </div>
-      </div>
-
-      <div class="step pending">
-        <div class="step-header">
-          <span class="step-num">[3]</span>
-          <span class="step-name">Validation UART</span>
-          <span class="step-status">Pending</span>
+        
+        <div class="progress-bar-container" v-if="step.statusClass === 'active'">
+          <!-- Real progress is not granular per step yet, so just an animated bar or fixed width -->
+          <div class="progress-bar" style="width: 100%; animation: indeterminate 1.5s infinite linear;"></div>
         </div>
       </div>
     </div>
@@ -167,5 +213,10 @@
   height: 100%;
   background: var(--info);
   box-shadow: 0 0 10px var(--info);
+}
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); width: 30%; }
+  100% { transform: translateX(300%); width: 30%; }
 }
 </style>
