@@ -63,3 +63,6 @@ vault/*
 !vault/.gitkeep
 data/*
 !data/.gitkeep
+
+# Python
+test_mcp.py
