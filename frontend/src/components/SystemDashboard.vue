@@ -15,7 +15,7 @@ const ramUsagePercent = computed(() => {
     <div class="metrics">
       <div class="metric">
         <span class="label">CPU</span>
-        <div class="bar-bg"><div class="bar-fill" :style="{ width: systemStore.cpu + '%' }"></div></div>
+        <div class="bar-bg"><div class="bar-fill" :class="{ warn: systemStore.cpu > 80 }" :style="{ width: systemStore.cpu + '%' }"></div></div>
         <span class="val">{{ systemStore.cpu }}%</span>
       </div>
 
@@ -27,12 +27,17 @@ const ramUsagePercent = computed(() => {
 
       <div class="metric">
         <span class="label">TEMP</span>
-        <span class="val val-text">{{ systemStore.temp }}°C</span>
+        <span class="val val-text" :class="{ hot: systemStore.temp > 70 }">{{ systemStore.temp || '—' }}°C</span>
       </div>
       
-       <div class="metric">
-        <span class="label">UPTIME</span>
-        <span class="val val-text">{{ systemStore.uptime || '...' }}</span>
+      <div class="metric">
+        <span class="label">UP</span>
+        <span class="val val-text">{{ systemStore.uptimeFormatted }}</span>
+      </div>
+
+      <div class="metric" v-if="systemStore.ip">
+        <span class="label">IP</span>
+        <span class="val val-text ip">{{ systemStore.ip }}</span>
       </div>
     </div>
   </div>
@@ -53,21 +58,24 @@ const ramUsagePercent = computed(() => {
 }
 
 .metrics {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
 }
 
 .metric {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-width: 120px;
 }
 
 .label {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   width: 30px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
 }
 
 .bar-bg {
@@ -76,27 +84,42 @@ const ramUsagePercent = computed(() => {
   background: rgba(255,255,255,0.1);
   border-radius: 2px;
   overflow: hidden;
+  min-width: 60px;
 }
 
 .bar-fill {
   height: 100%;
   background: var(--success);
+  transition: width 0.5s ease;
 }
 
 .bar-fill.info {
   background: var(--info);
 }
 
+.bar-fill.warn {
+  background: var(--error);
+}
+
 .val {
   font-family: var(--font-mono);
   font-size: 11px;
-  width: 60px;
+  width: 80px;
   text-align: right;
+  flex-shrink: 0;
 }
 
 .val-text {
   flex: 1;
   text-align: left;
   color: var(--text-highlight);
+}
+
+.val-text.hot {
+  color: var(--error);
+}
+
+.ip {
+  font-size: 10px;
 }
 </style>

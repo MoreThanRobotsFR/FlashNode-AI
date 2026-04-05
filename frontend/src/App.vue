@@ -1,5 +1,8 @@
 <script setup>
 import { onMounted } from 'vue'
+import { Splitpanes, Pane } from 'splitpanes'
+import 'splitpanes/dist/splitpanes.css'
+
 import { useHardwareStore } from './stores/hardware'
 import { useSystemStore } from './stores/system'
 import { useFlasherStore } from './stores/flasher'
@@ -12,19 +15,19 @@ import TerminalPanel from './components/TerminalPanel.vue'
 import FirmwareVault from './components/FirmwareVault.vue'
 import OperationHistory from './components/OperationHistory.vue'
 import SystemDashboard from './components/SystemDashboard.vue'
+import ToastNotifications from './components/ToastNotifications.vue'
 
 const hardwareStore = useHardwareStore()
 const systemStore = useSystemStore()
 const flasherStore = useFlasherStore()
 
 onMounted(() => {
-  // Fetch initial REST data
   hardwareStore.fetchScan()
   hardwareStore.fetchGpioStatus()
+  hardwareStore.fetchProbes()
   systemStore.fetchStatus()
   flasherStore.fetchFirmwares()
 
-  // Subscribe to raw WebSocket streams
   hardwareStore.initRealtime()
   systemStore.initRealtime()
   flasherStore.initRealtime()
@@ -33,38 +36,74 @@ onMounted(() => {
 
 <template>
   <div class="cockpit-layout">
+    <!-- Toast Notifications -->
+    <ToastNotifications />
+
     <!-- Header: Boot Control (Sticky) -->
     <header class="header glass-panel">
       <BootControlPanel />
     </header>
 
-    <!-- Main Workspace -->
-    <div class="workspace">
-      
-      <!-- Left Sidebar: Context & Hardware -->
-      <aside class="sidebar-left">
-        <LiveDeviceTree class="glass-panel pane" style="flex: 2" />
-        <PowerRailControl class="glass-panel pane" style="flex: 1" />
-      </aside>
+    <!-- Main Workspace: Vertical split (workspace | footer) -->
+    <Splitpanes class="default-theme workspace-splitpanes" horizontal>
+      <!-- Top: 3 columns -->
+      <Pane :size="80" :min-size="50">
+        <Splitpanes class="default-theme">
+          <!-- Left Sidebar -->
+          <Pane :size="20" :min-size="12" :max-size="35">
+            <Splitpanes class="default-theme" horizontal>
+              <Pane :size="65" :min-size="30">
+                <div class="glass-panel pane full-pane">
+                  <LiveDeviceTree />
+                </div>
+              </Pane>
+              <Pane :size="35" :min-size="20">
+                <div class="glass-panel pane full-pane">
+                  <PowerRailControl />
+                </div>
+              </Pane>
+            </Splitpanes>
+          </Pane>
 
-      <!-- Center: Execution Engine -->
-      <main class="center-content glass-panel pane">
-        <PipelineStudio />
-      </main>
+          <!-- Center: Pipeline Studio -->
+          <Pane :size="45" :min-size="25">
+            <div class="glass-panel pane full-pane">
+              <PipelineStudio />
+            </div>
+          </Pane>
 
-      <!-- Right Sidebar: Output & State -->
-      <aside class="sidebar-right">
-        <TerminalPanel class="glass-panel pane" style="flex: 2" />
-        <FirmwareVault class="glass-panel pane" style="flex: 1" />
-      </aside>
-      
-    </div>
+          <!-- Right Sidebar -->
+          <Pane :size="35" :min-size="18" :max-size="50">
+            <Splitpanes class="default-theme" horizontal>
+              <Pane :size="60" :min-size="30">
+                <div class="glass-panel pane full-pane">
+                  <TerminalPanel />
+                </div>
+              </Pane>
+              <Pane :size="40" :min-size="20">
+                <div class="glass-panel pane full-pane">
+                  <FirmwareVault />
+                </div>
+              </Pane>
+            </Splitpanes>
+          </Pane>
+        </Splitpanes>
+      </Pane>
 
-    <!-- Footer: System / History -->
-    <footer class="footer glass-panel">
-      <SystemDashboard style="flex: 1" />
-      <OperationHistory style="flex: 2" />
-    </footer>
+      <!-- Bottom: Footer -->
+      <Pane :size="20" :min-size="10" :max-size="40">
+        <div class="glass-panel pane footer-pane">
+          <Splitpanes class="default-theme">
+            <Pane :size="30" :min-size="15">
+              <SystemDashboard />
+            </Pane>
+            <Pane :size="70" :min-size="30">
+              <OperationHistory />
+            </Pane>
+          </Splitpanes>
+        </div>
+      </Pane>
+    </Splitpanes>
   </div>
 </template>
 
@@ -73,54 +112,100 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 10px;
-  gap: 10px;
+  padding: 8px;
+  gap: 8px;
   box-sizing: border-box;
 }
 
 .header {
-  height: 60px;
+  height: 56px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   padding: 0 20px;
 }
 
-.workspace {
-  display: flex;
+.workspace-splitpanes {
   flex: 1;
-  gap: 10px;
-  min-height: 0; /* Important for flex child scroll */
+  min-height: 0;
 }
 
-.sidebar-left, .sidebar-right {
-  width: 300px;
+.full-pane {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.sidebar-right {
-  width: 400px; /* Needs more space for xterm */
-}
-
-.center-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.footer {
-  height: 120px;
-  flex-shrink: 0;
-  display: flex;
-  gap: 20px;
-  padding: 10px 20px;
 }
 
 .pane {
-  padding: 15px;
+  padding: 12px;
   overflow: auto;
+}
+
+.footer-pane {
+  height: 100%;
+  display: flex;
+  padding: 10px 16px;
+}
+</style>
+
+<!-- Override splitpanes default theme to match cyber-industrial design -->
+<style>
+/* Splitter bar */
+.splitpanes.default-theme .splitpanes__splitter {
+  background-color: transparent !important;
+  border: none !important;
+  position: relative;
+}
+
+/* Vertical splitter (horizontal divider bar) */
+.splitpanes.default-theme.splitpanes--horizontal > .splitpanes__splitter {
+  height: 8px !important;
+  min-height: 8px !important;
+}
+
+/* Horizontal splitter (vertical divider bar) */
+.splitpanes.default-theme.splitpanes--vertical > .splitpanes__splitter {
+  width: 8px !important;
+  min-width: 8px !important;
+}
+
+/* Splitter hover indicator */
+.splitpanes.default-theme .splitpanes__splitter::before {
+  content: '' !important;
+  position: absolute !important;
+  background: rgba(94, 234, 212, 0.15) !important;
+  border-radius: 2px !important;
+  transition: background 0.2s ease !important;
+  z-index: 1 !important;
+}
+
+.splitpanes.default-theme.splitpanes--horizontal > .splitpanes__splitter::before {
+  top: 3px !important;
+  bottom: 3px !important;
+  left: 20% !important;
+  right: 20% !important;
+  height: 2px !important;
+}
+
+.splitpanes.default-theme.splitpanes--vertical > .splitpanes__splitter::before {
+  left: 3px !important;
+  right: 3px !important;
+  top: 20% !important;
+  bottom: 20% !important;
+  width: 2px !important;
+}
+
+.splitpanes.default-theme .splitpanes__splitter:hover::before {
+  background: rgba(94, 234, 212, 0.5) !important;
+  box-shadow: 0 0 8px rgba(94, 234, 212, 0.3) !important;
+}
+
+.splitpanes.default-theme .splitpanes__splitter::after {
+  display: none !important;
+}
+
+/* Remove default splitpanes border */
+.splitpanes.default-theme .splitpanes__pane {
+  background: transparent !important;
 }
 </style>

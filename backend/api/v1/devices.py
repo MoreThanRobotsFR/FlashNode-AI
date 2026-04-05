@@ -17,6 +17,11 @@ async def list_serial_ports() -> List[Dict]:
     """Returns a list of available serial ports"""
     return device_scanner.scan_serial_ports()
 
+@router.get("/probes")
+async def list_probes() -> List[Dict]:
+    """Returns a list of CMSIS-DAP debug probes (Raspberry Pi Debug Probe, etc.)"""
+    return device_scanner.scan_debug_probes()
+
 @router.get("/usb-tree")
 async def list_usb_devices() -> List[Dict]:
     """Returns a list of connected USB devices (using pyudev/Linux)"""

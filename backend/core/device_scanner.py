@@ -83,4 +83,43 @@ class DeviceScanner:
             
         return devices
 
+    def scan_debug_probes(self) -> List[Dict]:
+        """Returns a list of CMSIS-DAP debug probes (filters USB + serial for known probe VID/PIDs)."""
+        probes = []
+        
+        # Check serial ports for CMSIS-DAP probes
+        for port in serial.tools.list_ports.comports():
+            is_probe = False
+            probe_type = "Unknown Probe"
+            
+            # Raspberry Pi Debug Probe (CMSIS-DAP) — VID 2e8a, PID 000c
+            if port.vid == 0x2e8a and port.pid == 0x000c:
+                is_probe = True
+                probe_type = "Raspberry Pi Debug Probe (CMSIS-DAP)"
+            # Generic CMSIS-DAP
+            elif port.description and "CMSIS-DAP" in port.description.upper():
+                is_probe = True
+                probe_type = "CMSIS-DAP Probe"
+            # ST-Link
+            elif port.vid == 0x0483:
+                is_probe = True
+                probe_type = "ST-Link"
+            # J-Link
+            elif port.vid == 0x1366:
+                is_probe = True
+                probe_type = "J-Link"
+            
+            if is_probe:
+                probes.append({
+                    "port": port.device,
+                    "type": probe_type,
+                    "description": port.description,
+                    "vid": hex(port.vid) if port.vid else None,
+                    "pid": hex(port.pid) if port.pid else None,
+                    "hwid": port.hwid,
+                    "interface": "SWD"
+                })
+        
+        return probes
+
 device_scanner = DeviceScanner()

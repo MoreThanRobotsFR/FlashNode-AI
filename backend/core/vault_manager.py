@@ -96,6 +96,30 @@ class VaultManager:
             return filepath
         return None
 
+    def get_checksums(self, target: str, filename: str) -> Optional[Dict[str, str]]:
+        """Returns MD5 and SHA256 checksums for a specific firmware."""
+        filepath = self.get_firmware_path(target, filename)
+        if not filepath:
+            return None
+        
+        md5 = None
+        sha256 = None
+        
+        # Try cached checksums first
+        if os.path.exists(f"{filepath}.md5"):
+            with open(f"{filepath}.md5", "r") as f:
+                md5 = f.read().strip()
+        else:
+            md5 = self._calculate_checksum(filepath, 'md5')
+            
+        if os.path.exists(f"{filepath}.sha256"):
+            with open(f"{filepath}.sha256", "r") as f:
+                sha256 = f.read().strip()
+        else:
+            sha256 = self._calculate_checksum(filepath, 'sha256')
+        
+        return {"md5": md5, "sha256": sha256}
+
     def delete_firmware(self, target: str, filename: str) -> bool:
         """Deletes a firmware and its checksum files."""
         target_dir = os.path.join(self.vault_path, target.upper())
