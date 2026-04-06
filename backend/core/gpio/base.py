@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+
 class GPIOBackend(ABC):
     @abstractmethod
     def set(self, pin_id: str, value: int):
@@ -15,3 +16,13 @@ class GPIOBackend(ABC):
     def pulse(self, pin_id: str, duration_ms: int):
         """Pulse a target pin"""
         pass
+
+    @property
+    def is_mock(self) -> bool:
+        """Returns True if this backend is a mock (no real hardware)."""
+        return False
+
+    @property
+    def backend_name(self) -> str:
+        """Human-readable name of this backend."""
+        return "unknown"

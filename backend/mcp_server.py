@@ -17,7 +17,14 @@ import logging
 import os
 import sys
 import time as _time
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# Ensure that the directory containing mcp_server.py is in the search path.
+# This allows importing from 'core', etc., even if launched from the project root.
+_script_dir = Path(__file__).resolve().parent
+if str(_script_dir) not in sys.path:
+    sys.path.insert(0, str(_script_dir))
 
 import psutil
 
@@ -29,12 +36,18 @@ from mcp.server.stdio import stdio_server
 # FlashNode-AI Core Modules
 from core.device_scanner import device_scanner
 from core.vault_manager import vault_manager
+from core.history_db import history_db
 from core.gpio.power_rails import power_rails
 from core.gpio.sequences import sequence_runner
 from core.pipeline_engine import pipeline_engine
 from core.gpio.factory import get_gpio_backend
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging to use stderr so it doesn't pollute the stdio MCP transport (which uses stdout).
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    stream=sys.stderr
+)
 logger = logging.getLogger("mcp_server")
 
 app = Server("flashnode-ai")
@@ -111,7 +124,7 @@ async def _pipeline_progress_callback(pipeline_id, step_idx, total, status, step
 
 
 # ─────────────────────────────────────────────────
-# MCP Resources
+# MCP Resources (4 resources)
 # ─────────────────────────────────────────────────
 @app.list_resources()
 async def list_resources() -> list[types.Resource]:
@@ -134,6 +147,12 @@ async def list_resources() -> list[types.Resource]:
             description="Current state of all GPIO pins and power rails.",
             mimeType="application/json"
         ),
+        types.Resource(
+            uri="flashnode://history",
+            name="Operation History",
+            description="Recent flash, pipeline, and GPIO operation history from the SQLite log.",
+            mimeType="application/json"
+        ),
     ]
 
 
@@ -145,19 +164,21 @@ async def read_resource(uri: str) -> str:
         return json.dumps(await _get_system_data(), indent=2)
     elif uri == "flashnode://gpio/status":
         return json.dumps(power_rails.get_status(), indent=2)
+    elif uri == "flashnode://history":
+        return json.dumps(history_db.get_history(limit=50), indent=2)
     else:
         raise ValueError(f"Unknown resource: {uri}")
 
 
 # ─────────────────────────────────────────────────
-# MCP Tools — 15 tools
+# MCP Tools — 17 tools
 # ─────────────────────────────────────────────────
 @app.list_tools()
 async def list_tools() -> list[types.Tool]:
     return [
         types.Tool(
             name="get_connected_hardware",
-            description="List all physically connected USB devices, active serial COM ports, debug probes, and the current state of power rails/GPIO.",
+            description="List all physically connected USB devices, active serial COM ports, debug probes, and the current state of power rails/GPIO. Includes gpio_backend field indicating 'mock' or 'libgpiod-v2'.",
             inputSchema={"type": "object", "properties": {}}
         ),
         types.Tool(
@@ -178,13 +199,25 @@ async def list_tools() -> list[types.Tool]:
             }
         ),
         types.Tool(
+            name="delete_firmware",
+            description="Permanently deletes a firmware file and its checksum sidecars from the Vault.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "firmware": {"type": "string", "description": "Firmware filename to delete"},
+                    "target": {"type": "string", "enum": ["RP2040", "ESP32"], "description": "Target MCU vault to delete from"}
+                },
+                "required": ["firmware", "target"]
+            }
+        ),
+        types.Tool(
             name="set_bootsel_mode_rp2040",
-            description="Forces the RP2040 into BOOTSEL mode via GPIO manipulation (RESET low + BOOTSEL low, then release).",
+            description="Forces the RP2040 into BOOTSEL mode via GPIO manipulation (RESET low + BOOTSEL low, then release). Returns dry_run=true if running on mock GPIO.",
             inputSchema={"type": "object", "properties": {}}
         ),
         types.Tool(
             name="set_download_mode_esp32",
-            description="Forces the ESP32 into ROM Download mode via EN and GPIO0 manipulation.",
+            description="Forces the ESP32 into ROM Download mode via EN and GPIO0 manipulation. Returns dry_run=true if running on mock GPIO.",
             inputSchema={"type": "object", "properties": {}}
         ),
         types.Tool(
@@ -211,7 +244,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="flash_rp2040",
-            description="Flashes a firmware onto the RP2040 using picotool (USB) or OpenOCD (SWD via CMSIS-DAP probe).",
+            description="Flashes a firmware onto the RP2040 using picotool (USB) or OpenOCD (SWD via CMSIS-DAP probe). Pre-checks that the CLI tool is available.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -224,7 +257,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="flash_esp32",
-            description="Flashes a firmware onto the ESP32 via esptool over a serial port.",
+            description="Flashes a firmware onto the ESP32 via esptool over a serial port. Pre-checks that esptool.py is available.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -249,6 +282,11 @@ async def list_tools() -> list[types.Tool]:
             }
         ),
         types.Tool(
+            name="reload_pipelines",
+            description="Reloads the pipeline definitions from config/pipelines.json without restarting the server. Use this after editing pipelines at runtime.",
+            inputSchema={"type": "object", "properties": {}}
+        ),
+        types.Tool(
             name="stream_serial_logs",
             description="Opens a serial port and reads data for a specified duration. Returns the captured text output.",
             inputSchema={
@@ -263,7 +301,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="get_flash_status",
-            description="Returns the current status of any ongoing flash operation, including progress percentage and step details.",
+            description="Returns the current status of any ongoing flash operation, including real-time progress percentage and step details.",
             inputSchema={"type": "object", "properties": {}}
         ),
         types.Tool(
@@ -341,11 +379,14 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     try:
         # ── Hardware Discovery ──
         if name == "get_connected_hardware":
+            gpio_backend = get_gpio_backend()
             result = {
                 "usb": device_scanner.scan_usb_devices(),
                 "serial": device_scanner.scan_serial_ports(),
                 "probes": device_scanner.scan_debug_probes(),
-                "power_rails": power_rails.get_status()
+                "power_rails": power_rails.get_status(),
+                "gpio_backend": getattr(gpio_backend, 'backend_name', 'unknown'),
+                "gpio_is_mock": getattr(gpio_backend, 'is_mock', True),
             }
             return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
@@ -394,18 +435,29 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                 "target": target,
                 "md5": {"stored": checksums["md5"], "computed": fresh_md5, "match": md5_ok},
                 "sha256": {"stored": checksums["sha256"], "computed": fresh_sha256, "match": sha256_ok},
-                "integrity": "OK" if (md5_ok and sha256_ok) else "MISMATCH — file may be corrupted"
+                "integrity": "OK" if (md5_ok and sha256_ok) else "MISMATCH - file may be corrupted"
             }
             return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
+        elif name == "delete_firmware":
+            fw_name = arguments["firmware"]
+            target = arguments["target"].upper()
+            success = vault_manager.delete_firmware(target, fw_name)
+            if success:
+                return [types.TextContent(type="text", text=f"Deleted {fw_name} from {target} vault.")]
+            else:
+                return [types.TextContent(type="text", text=f"Error: Could not delete {fw_name} from {target} vault. File may not exist.")]
+
         # ── GPIO Control ──
         elif name == "set_bootsel_mode_rp2040":
-            success = await sequence_runner.run_sequence("rp2040_bootsel")
-            return [types.TextContent(type="text", text=f"RP2040 BOOTSEL mode: {'Success — device should appear as USB mass storage' if success else 'Failed'}")]
+            res = await sequence_runner.run_sequence("rp2040_bootsel")
+            status = "Success - device should appear as USB mass storage" if res["success"] else f"Failed: {res.get('error', 'unknown error')}"
+            return [types.TextContent(type="text", text=json.dumps({"status": status, "dry_run": res["dry_run"], "steps_executed": res["steps_executed"]}, indent=2))]
 
         elif name == "set_download_mode_esp32":
-            success = await sequence_runner.run_sequence("esp32_download")
-            return [types.TextContent(type="text", text=f"ESP32 Download mode: {'Success — ready for esptool flash' if success else 'Failed'}")]
+            res = await sequence_runner.run_sequence("esp32_download")
+            status = "Success - ready for esptool flash" if res["success"] else f"Failed: {res.get('error', 'unknown error')}"
+            return [types.TextContent(type="text", text=json.dumps({"status": status, "dry_run": res["dry_run"], "steps_executed": res["steps_executed"]}, indent=2))]
 
         elif name == "set_power_rail":
             rail = arguments["rail"].lower()
@@ -416,7 +468,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 
             is_on = state == "on"
             await power_rails.set_rail_async(rail, is_on)
-            return [types.TextContent(type="text", text=f"Rail {rail.upper()} → {'ON' if is_on else 'OFF'}")]
+            return [types.TextContent(type="text", text=f"Rail {rail.upper()} -> {'ON' if is_on else 'OFF'}")]
 
         elif name == "power_cycle":
             off_ms = arguments.get("off_ms", 1000)
@@ -432,23 +484,34 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             if not fw_path:
                 return [types.TextContent(type="text", text=f"Error: Firmware '{fw_name}' not found in RP2040 vault. Use list_firmwares() to see available files.")]
 
-            # Update flash state
-            _flash_state.update({"status": "running", "tool": tool, "target": "RP2040", "firmware": fw_name, "progress": 0, "started_at": _time.time(), "error": None})
+            # Pre-check CLI tool availability
+            from core.flasher.base import BaseFlasher
+            cli_name = "openocd" if tool == "openocd" else "picotool"
+            if not BaseFlasher.check_tool_available(cli_name):
+                return [types.TextContent(type="text", text=f"Error: '{cli_name}' not found on PATH. Install it on the Rock 5C before flashing.")]
+
+            # Update flash state + wire progress callback
+            _flash_state.update({"status": "running", "tool": tool, "target": "RP2040", "firmware": fw_name, "progress": 0, "step": "", "started_at": _time.time(), "error": None})
+
+            async def _on_progress_rp2040(pct: int, step: str):
+                _flash_state["progress"] = pct
+                _flash_state["step"] = step
 
             try:
                 if tool == "openocd":
                     from core.flasher.openocd_runner import OpenOCDRunner
-                    runner = OpenOCDRunner()
+                    runner = OpenOCDRunner(on_progress=_on_progress_rp2040)
                 else:
                     from core.flasher.picotool_runner import PicotoolRunner
-                    runner = PicotoolRunner()
+                    runner = PicotoolRunner(on_progress=_on_progress_rp2040)
 
                 success = await runner.flash(fw_path)
                 _flash_state["status"] = "success" if success else "failed"
                 _flash_state["progress"] = 100 if success else _flash_state["progress"]
                 _flash_state["finished_at"] = _time.time()
                 duration = round(_flash_state["finished_at"] - _flash_state["started_at"], 1)
-                return [types.TextContent(type="text", text=f"Flash RP2040 ({tool}): {'✅ Success' if success else '❌ Failed'} ({duration}s)")]
+                result_str = "Success" if success else "Failed"
+                return [types.TextContent(type="text", text=f"Flash RP2040 ({tool}): {result_str} ({duration}s)")]
             except Exception as e:
                 _flash_state.update({"status": "failed", "error": str(e), "finished_at": _time.time()})
                 raise
@@ -464,17 +527,27 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             if not fw_path:
                 return [types.TextContent(type="text", text=f"Error: Firmware '{fw_name}' not found in ESP32 vault. Use list_firmwares() to see available files.")]
 
-            _flash_state.update({"status": "running", "tool": "esptool", "target": "ESP32", "firmware": fw_name, "progress": 0, "started_at": _time.time(), "error": None})
+            # Pre-check CLI tool availability
+            from core.flasher.base import BaseFlasher
+            if not BaseFlasher.check_tool_available("esptool.py") and not BaseFlasher.check_tool_available("esptool"):
+                return [types.TextContent(type="text", text="Error: 'esptool.py' not found on PATH. Install it with: pip install esptool")]
+
+            _flash_state.update({"status": "running", "tool": "esptool", "target": "ESP32", "firmware": fw_name, "progress": 0, "step": "", "started_at": _time.time(), "error": None})
+
+            async def _on_progress_esp32(pct: int, step: str):
+                _flash_state["progress"] = pct
+                _flash_state["step"] = step
 
             try:
                 from core.flasher.esptool_runner import EspToolRunner
-                runner = EspToolRunner()
+                runner = EspToolRunner(on_progress=_on_progress_esp32)
                 success = await runner.flash(fw_path, port, baud, chip, flash_address)
                 _flash_state["status"] = "success" if success else "failed"
                 _flash_state["progress"] = 100 if success else _flash_state["progress"]
                 _flash_state["finished_at"] = _time.time()
                 duration = round(_flash_state["finished_at"] - _flash_state["started_at"], 1)
-                return [types.TextContent(type="text", text=f"Flash ESP32 ({port}): {'✅ Success' if success else '❌ Failed'} ({duration}s)")]
+                result_str = "Success" if success else "Failed"
+                return [types.TextContent(type="text", text=f"Flash ESP32 ({port}): {result_str} ({duration}s)")]
             except Exception as e:
                 _flash_state.update({"status": "failed", "error": str(e), "finished_at": _time.time()})
                 raise
@@ -502,7 +575,14 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             _pipeline_state["finished_at"] = _time.time()
             duration = round(_pipeline_state["finished_at"] - _pipeline_state["started_at"], 1)
 
-            return [types.TextContent(type="text", text=f"Pipeline '{pipeline_name}': {'✅ Completed successfully' if success else '❌ Failed at step ' + str(_pipeline_state['current_step'])} ({duration}s)")]
+            result_str = "Completed successfully" if success else f"Failed at step {_pipeline_state['current_step']}"
+            return [types.TextContent(type="text", text=f"Pipeline '{pipeline_name}': {result_str} ({duration}s)")]
+
+        elif name == "reload_pipelines":
+            global _pipelines_cache
+            _pipelines_cache = None
+            reloaded = _load_pipelines()
+            return [types.TextContent(type="text", text=f"Pipelines reloaded. Found {len(reloaded)} pipeline(s): {', '.join(p['id'] for p in reloaded) or 'none'}")]
 
         # ── Serial Monitoring ──
         elif name == "stream_serial_logs":
@@ -581,9 +661,9 @@ async def run_sse(host: str = "0.0.0.0", port: int = 8001):
 
     sse = SseServerTransport("/messages/")
 
-    async def handle_sse(request):
+    async def handle_sse(scope, receive, send):
         async with sse.connect_sse(
-            request.scope, request.receive, request._send
+            scope, receive, send
         ) as streams:
             await app.run(streams[0], streams[1], app.create_initialization_options())
 
@@ -602,9 +682,20 @@ async def run_sse(host: str = "0.0.0.0", port: int = 8001):
 
 
 if __name__ == "__main__":
-    if "--sse" in sys.argv:
-        host = os.environ.get("MCP_HOST", "0.0.0.0")
-        port = int(os.environ.get("MCP_PORT", "8001"))
-        asyncio.run(run_sse(host, port))
-    else:
-        asyncio.run(run_stdio())
+    try:
+        if "--sse" in sys.argv:
+            host = os.environ.get("MCP_HOST", "0.0.0.0")
+            port = int(os.environ.get("MCP_PORT", "8001"))
+            asyncio.run(run_sse(host, port))
+        else:
+            asyncio.run(run_stdio())
+    except Exception as e:
+        import traceback
+        try:
+            with open("mcp_crash.log", "w") as f:
+                f.write(f"Crash at {_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(traceback.format_exc())
+        except:
+            pass
+        logger.error(f"MCP server crashed: {e}", exc_info=True)
+        sys.exit(1)

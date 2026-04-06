@@ -5,6 +5,9 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 import logging
 import os
+import sys
+import subprocess
+from contextlib import asynccontextmanager
 
 # Load environment variables from .env file FIRST
 load_dotenv()
@@ -31,10 +34,35 @@ from ws.pipeline_ws import router as pipeline_ws_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start the MCP Server as a background process
+    logger.info("Starting MCP Server in SSE HTTP mode...")
+    mcp_path = os.path.join(os.path.dirname(__file__), "mcp_server.py")
+    
+    # We pass the same python executable so it runs in the same environment (e.g. venv)
+    mcp_process = subprocess.Popen(
+        [sys.executable, mcp_path, "--sse"],
+        env=os.environ.copy()
+    )
+    logger.info(f"MCP Server started with PID {mcp_process.pid} on port 8001")
+    
+    yield  # The main FastAPI backend runs here
+    
+    # Shutdown the MCP Server when FastAPI shuts down
+    logger.info("Shutting down MCP Server...")
+    mcp_process.terminate()
+    try:
+        mcp_process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        logger.warning("MCP Server did not terminate gracefully, killing it...")
+        mcp_process.kill()
+
 app = FastAPI(
     title="FlashNode-AI API",
     description="Station de programmation et test matériel",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS configuration for Frontend
